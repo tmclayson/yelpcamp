@@ -1,13 +1,12 @@
 {
-    "name": "WebDevBootcamp",
+    "name": "Yelpcamp",
     "version": "1.0.0",
-	 "main": "app.js",
-	 "scripts": {
-	 "start": "node app.js"
-	 }
+    "main": "app.js",
+    "scripts": {
+        "start": "node app.js"
+    },
     "dependencies": {
         "body-parser": "^1.18.3",
-        "bower": "latest",
         "connect-ensure-login": "^0.1.1",
         "connect-flash": "^0.1.1",
         "cookie-parser": "^1.4.3",
