@@ -1,0 +1,89 @@
+<% include ../partials/header %>
+
+
+
+<div class="container">
+
+<div class="row">
+    <div class="col-3">
+        <div class="list-group" id="campInfoLinksCollapse">
+            <a href="#" class="list-group-item list-group-item-action active">Description</a>
+            <a href="#" class="list-group-item list-group-item-action">Facilities</a>
+            <a href="#" class="list-group-item list-group-item-action">Links</a>
+        </div>
+
+        <div id="map"></div>
+        <script>
+            var map;
+            function initMap() {
+                map = new google.maps.Map(document.getElementById('map'), {
+                center: {lat: -34.397, lng: 150.644},
+                zoom: 8
+                });
+            }
+        </script>
+    </div>
+    <div class="col-9">
+        <div class="card" id="showCampCard">
+            <img src= "<%=campground.image%>" class="img-fluid card-img-top">
+
+            <div class="card-body">
+                <h5 class="card-title"><%= campground.name %></h5>
+                <h5 class="card-title text-muted float-right">&euro;<%= campground.price %>/night</h5>
+                <h6 class="card-title text-muted"><em>Submitted by <%= campground.createdBy.firstName %></em></h6>
+
+                <p class="card-text"><%- campground.description %></p>
+                <% if (currentUser && (campground.createdBy.id.equals(currentUser._id) || currentUser.isAdmin)) { %>
+                    <div id="showButtonGroup">
+                        <a href="/campgrounds/<%= campground._id %>/edit" method="get" class="btn btn-warning btn-sm">Edit</a>
+                        <form action="/campgrounds/<%= campground._id %>?_method=DELETE" method="POST">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+
+                    </div>
+                <% } %>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body text-right">
+                <a href="/campgrounds/<%= campground._id %>/comments/new" method="get" class="btn btn-primary card-link">
+                    Add Comment
+                </a>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">Reviews</h5>
+                <% campground.comments.forEach(comment => { %>
+                    <div class="card" id="reviewCard">
+                        <div class="card-body">
+                            <h6 class="card-title"><%= comment.author.firstName %> <%= comment.author.lastName.charAt(0) %></h6>
+                            <h6 class="card-title text-muted float-right"><%= comment.created.toDateString() %> </h6>
+
+                            <p class="card-text">
+                                <%- comment.text %>
+                            </p>
+                                <% if (currentUser && comment.author.id.equals(currentUser._id) || currentUser.isAdmin)) { %>
+                                    <div id="showButtonGroup">
+                                        <a class="btn btn-warning btn-sm" href="/campgrounds/<%= campground._id %>/comments/<%= comment._id %>/edit">
+                                        Edit
+                                        </a>
+                                        <form action="/campgrounds/<%= campground._id %>/comments/<%= comment._id %>/?_method=DELETE" method="POST">
+                                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                        </form>
+                                    </div>
+                                <% } %>
+
+                        </div>
+                    </div>
+                <% }) %>
+
+            </div>
+        </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUTNOlG74gSOAWlY_Gx_7jaqhWtNVpoWU&callback=initMap" async defer></script>
+
+<% include ../partials/footer %>

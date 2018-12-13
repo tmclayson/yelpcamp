@@ -1,0 +1,74 @@
+.container {
+    width: 80%;
+}
+
+#goBack {
+    padding-top: 25px;
+}
+
+h1 {
+    text-align: center;
+    margin: 25px auto;
+}
+
+#formDiv {
+    width: 50%;
+    margin: 25px auto;
+}
+
+#formButtonGroup .form-group,
+#showButtonGroup form {
+    display: inline;
+}
+
+#showButtonGroup .card-body .card-text form,
+#showButtonGroup .card-body .card-text a {
+    display: inline;
+}
+
+#campgroundInfo h4 {
+    text-align: right;
+}
+
+#reviewCard h6,
+#showCampCard h5 {
+    display: inline-block;
+}
+
+img {
+    width: 100%;
+}
+
+#map {
+    height: 100%;
+}
+
+.dropdown .dropdown-menu {
+    min-width: 20rem;
+}
+
+#userIconContainer {
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+}
+
+.white-space-pre {
+    white-space: pre-wrap;
+}
+
+.fa-user {
+    font-size: 4vw;
+    text-align: center;
+}
+@media only screen and (max-width: 700px) {
+
+    #newPostForm {
+        width: 100%;
+    }
+}
+
+input:focus::-webkit-input-placeholder { color:transparent; }
+input:focus:-moz-placeholder { color:transparent; }
+input:focus::-moz-placeholder { color:transparent; }
+input:focus:-ms-input-placeholder { color:transparent; }

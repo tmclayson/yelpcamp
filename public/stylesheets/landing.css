@@ -1,0 +1,113 @@
+body {
+  background-color: #000;
+}
+
+#landing-header {
+    /* We set the z-index to 1 so all of the elements inside the landing-header div will be in front of the background images */
+    z-index: 1;
+    /* The position is set to relative so we can use the z-index property; the default position value is static, which ignores z-index */
+    position: relative;
+    /* We use text-align to center our text and button */
+    text-align: center;
+    /* We use padding-top to vertically center our div, since it's contents take up quite a bit of space we use 40vh (view height)
+    instead of 50, this way the content looks more visually centered   */
+    padding-top: 40vh;
+}
+
+#landing-header h1 {
+  color: #fff;
+}
+
+.slideshow {
+/*  This will fix the ul to the window, positioning it in the top left corner */
+/*  The top, right, bottom, and left properties specify offsets from the edges of the element's containing block.
+    (The containing block is the ancestor relative to which the element is positioned.)      */
+    position: fixed;
+    top: 0;
+    left: 0;
+/* filling the entire screen     */
+    width: 100%;
+    height: 100%;
+ /* z-index to 0 to keep the background images behind the rest of the page's content     */
+    z-index: 0;
+/* set to none in order to hide the bullet points from the list's default styling     */
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.slideshow li {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+/*  The top, right, bottom, and left properties specify offsets from the edges of the element's containing block.
+    (The containing block is the ancestor relative to which the element is positioned.)      */
+    top: 0;
+    left: 0;
+    background-size: cover;
+    background-position: 50% 50%;
+    background-repeat: no-repeat;
+    opacity: 0;
+    z-index: 0;
+/*  we have an animation named imageAnimation that lasts for 50s (seconds),
+    keeps linear timing	(the whole animation runs at the same speed),
+    and loops an infinite number of times     */
+    animation: imageAnimation 50s linear infinite;
+}
+
+/*  Each list item needs a background-image and the last four need an animation-delay
+    (this way they all fire off one after the other in ten second intervals): */
+.slideshow li:nth-child(1) {
+    background-image: url(/images/first.jpg);
+}
+.slideshow li:nth-child(2) {
+    background-image: url(/images/second.jpg);
+    animation-delay: 10s
+}
+.slideshow li:nth-child(3) {
+    background-image: url(/images/third.jpg);
+    animation-delay: 20s;
+}
+.slideshow li:nth-child(4) {
+    background-image: url(/images/fourth.jpg);
+    animation-delay: 30s;
+}
+.slideshow li:nth-child(5) {
+    background-image: url(/images/fifth.jpg);
+    animation-delay: 40s;
+}
+
+/*  The @keyframes rule specifies the animation code. */
+/*  The animation is created by gradually changing from one set of CSS styles to another. */
+/*  During the animation, you can change the set of CSS styles many times. */
+/*  Specify when the style change will happen in percent, or with the keywords "from" and "to",
+    which is the same as 0% and 100%. 0% is the beginning of the animation, 100% is when the animation is complete. */
+/*  The animation will be named imageAnimation, which matches with the value from
+    our animation property in the .slideshow (unordered list) rule */
+/*  If we have 5 background images visible for 5 seconds each, then the time it takes
+    to fade the image in and keep it visible is 10 seconds with a 5 second crossfade/fadeout
+    into the next image; The entire animation cycle for all 5 images takes 50 seconds total.
+    100% divided by 5 is 20% so each image's fadein and visibility should last 20% of the cycle;
+    half of 20% is 10%, that is why our fade in is from 0% to 10%, then we keep it visible until
+    20% is reached and begin the fadeout from 20% to 30%, the 5 second fadeout overlaps the next
+    image's 5 second fadein, which is what creates the crossfade effect */
+@keyframes imageAnimation {
+/*  From 0% to 10% (the beginning of our animation) the list item begins changing it's opacity from 0 to 1 (invisible to visible)
+    the animation-timing-function is set to ease-in at 0% and ease-out and 10%, this makes for a more smooth fade-in */
+    0% {
+    opacity: 0;
+    animation-timing-function: ease-in;
+    }
+/*  The list item's opacity then stays at 1 until it reaches 20% at which point it fades back out,
+    reaching 0 at 30% and staying at 0 for the remainder of the animation     */
+    10% {
+    opacity: 1;
+    animation-timing-function: ease-out;
+    }
+    20% {
+    opacity: 1
+    }
+    30% {
+    opacity: 0
+    }
+}
