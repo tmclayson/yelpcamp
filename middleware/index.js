@@ -98,10 +98,11 @@ module.exports = {
         const setReturnTo = (options.setReturnTo === undefined) ? true : options.setReturnTo;
 
         return function (req, res, next) {
-            console.log(`originalUrl${req.originalUrl}`);
+
             if (!req.isAuthenticated || !req.isAuthenticated()) {
                 if (setReturnTo && req.session) {
                     req.session.returnTo = req.originalUrl || req.url;
+                    console.log(`originalUrl: ${req.session.returnTo}`);
                 }
                 req.flash('error', 'You need to be logged in to do that');
                 return res.redirect(url);

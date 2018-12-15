@@ -1,4 +1,6 @@
 // SETUP ======================================================================
+require('dotenv').config();
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const methodOverride = require('method-override');
@@ -8,9 +10,11 @@ const passport = require('passport');
 const mongoose = require('mongoose');
 const morgan = require('morgan');
 const session = require('express-session');
+const MemoryStore = require('memorystore')(session);
 const flash = require('connect-flash');
 
-// const seedDB = require('./seeds');
+
+const seedDB = require('./seeds');
 // const lib = require('./assets/lib/js/mylibrary');
 
 const User = require('./models/user');
@@ -27,7 +31,6 @@ const app = express();
 // EXPRESS SETUP
 app.set('view engine', 'ejs');
 app.use(flash());
-// app.use(cookieParser());
 app.use(morgan('dev')); // log every request to the console
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
@@ -39,6 +42,9 @@ app.use(express.static('public'));
 
 // PASSPORT CONFIGURATION
 app.use(session({
+    store: new MemoryStore({
+        checkPeriod: 86400000, // prune expired entries every 24h
+    }),
     secret: 'Cheese Rolling',
     resave: false,
     saveUninitialized: false,
@@ -66,7 +72,7 @@ app.use('/campgrounds', campgroundRoutes);
 // seedDB();
 
 // LAUNCH ===============================================================
-app.listen(8080, '127.0.0.1', () => {
+app.listen(8080, 'localhost', () => {
     console.log('Server has started!');
 });
 
