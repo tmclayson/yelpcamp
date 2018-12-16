@@ -9,9 +9,15 @@
                 <small id="emailHelp" class="form-text text-muted">We'll never share your email with anyone else.</small>
             </div>
             <div class="form-group">
-                <label for="loginFormPassword">Password</label>
-                <input type="password" class="form-control" id="loginFormPassword" name="password" placeholder="Password" required>
-                <input type="checkbox" onclick="showPassword()">Show Password
+                <label for="password">Password</label>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="password" name="password" data-toggle="password" required>
+                    <div class="input-group-append">
+                    <span class="input-group-text">
+                        <i class="fa fa-eye"></i>
+                    </span>
+                    </div>
+                </div>
             </div>
 
             <button type="submit" class="btn btn-primary">Submit</button>
@@ -19,14 +25,6 @@
     </div>
 </div>
 
-<script>
-    function showPassword() {
-        const x = document.getElementById('loginFormPassword');
-        if (x.type === 'password') {
-            x.type = 'text';
-        } else {
-            x.type = 'password';
-        }
-    }
-</script>
+<script src="/javascript/bootstrap-show-password.js"></script>
+
 <% include partials/footer %>
