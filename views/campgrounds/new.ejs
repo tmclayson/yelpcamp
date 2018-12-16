@@ -7,19 +7,24 @@
         <div id="formDiv">
             <form action='/campgrounds' method='POST'>
                 <div class="form-group">
-                    <input class="form-control" type="text" name="name" placeholder="Ye olde campsite...">
+                    <label for="campName">Name</label>
+                    <input class="form-control" type="text" name="name" id="campName" placeholder="Ye olde campsite...">
                 </div>
                 <div class="form-group">
-                    <input class="form-control" type="number" name="price" min="0.01" step="0.01" placeholder="price/night">
+                    <label for="campPrice">Price</label>
+                    <input class="form-control" type="number" name="price" id="campPrice" min="0.01" step="0.01" placeholder="€/night" data-toggle="tooltip" data-placement="right">
                 </div>
                 <div class="form-group">
-                    <input class="form-control" type="text" name="location" placeholder="Yosemite...">
+                    <label for="campLocation">Location</label>
+                    <input class="form-control" type="text" name="location" id="campLocation" placeholder="Yosemite..." data-toggle="tooltip" data-placement="right">
                 </div>
                 <div class="form-group">
-                    <input class="form-control" type="text" name="image" placeholder="http://...">
+                    <label for="campImage">Image URL</label>
+                    <input class="form-control" type="text" name="image" id="campImage" placeholder="http://...">
                 </div>
                 <div class="form-group">
-                    <textarea rows="4" class="form-control" type="text" name="description" placeholder="This campsite changed my life..."></textarea>
+                    <label for="campDescription">Description</label>
+                    <textarea rows="4" class="form-control" type="text" name="description" id="campDescription" placeholder="This campsite changed my life..."></textarea>
                 </div>
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">Submit</button>
@@ -29,5 +34,21 @@
             <a href="/campgrounds">Go back</a>
         </div>
 </div>
+
+<script>
+    // event is triggerred when the initial HTML document has been completely loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        $('#campPrice').tooltip( {
+            title: 'Test!',
+        });
+        $('#campLocation').tooltip( {
+            title: 'Please enter the address as accurately as you can. If the campground doesn\'t have an address, please use a google maps plus code.',
+        });
+    });
+
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip()
+    })
+</script>
 
 <% include ../partials/footer %>

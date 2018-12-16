@@ -7,19 +7,24 @@
         <div id="formDiv">
             <form action="/campgrounds/<%= campground._id %>?_method=PUT" method="POST">
                 <div class="form-group">
-                    <input class="form-control" type="text" name="name" value="<%= campground.name %>">
+                    <label for="campName">Name</label>
+                    <input class="form-control" type="text" name="campground[name]" id="campName" value="<%= campground.name %>">
                 </div>
                 <div class="form-group">
-                    <input class="form-control" type="number" name="price" value="<%= campground.price %>" min="0.01" step="0.01">
+                    <label for="campPrice">Price</label>
+                    <input class="form-control" type="number" name="campground[price]" id="campPrice" value="<%= campground.price %>" min="0.01" step="0.01">
                 </div>
                 <div class="form-group">
-                    <input class="form-control" type="text" name="location" value="<%= campground.location %>">
+                    <label for="campLocation">Location</label>
+                    <input class="form-control" type="text" name="location" id="campLocation" value="<%= campground.location %>">
                 </div>
                 <div class="form-group">
-                    <input class="form-control" type="text" name="image" value="<%= campground.image %>">
+                    <label for="campImage">Image URL</label>
+                    <input class="form-control" type="text" name="campground[image]" id="campImage" value="<%= campground.image %>">
                 </div>
                 <div class="form-group">
-                    <textarea rows="4" class="form-control" type="text" name="description"><%= campground.description %></textarea>
+                    <label for="campDescription">Description</label>
+                    <textarea rows="4" class="form-control" type="text" name="campground[description]" id="campDescription"><%= campground.description %></textarea>
                 </div>
                 <div id="formButtonGroup">
                     <a href="/campgrounds/<%= campground._id %>" method="get" class="btn btn-danger">Cancel</a>

@@ -1,8 +1,7 @@
-function showPassword() {
-    const x = document.getElementById('loginFormPassword');
-    if (x.type === 'password') {
-        x.type = 'text';
-    } else {
-        x.type = 'password';
-    }
-}
+import Tooltip from '';
+
+
+
+
+
+// $('#campPrice').tooltip({ 'trigger': 'focus', 'title': 'The nightly cost of staying in this camp' });

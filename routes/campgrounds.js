@@ -106,13 +106,14 @@ router.put('/:id', middleware.ensureLoggedIn('/login'), middleware.checkCampgrou
             req.flash('error', 'Invalid Address');
             res.redirect('back');
         } else {
-            const newData = {};
-            Object.assign(newData, req.body.campground);
-            newData.location = geolocationData[0].formattedAddress;
-            newData.lat = geolocationData[0].latitude;
-            newData.lng = geolocationData[0].longitude;
+            // const newData = {};
+            // Object.assign(newData, req.body.campground);
+            req.body.campground.location = geolocationData[0].formattedAddress;
+            // newData.location = geolocationData[0].formattedAddress;
+            req.body.campground.lat = geolocationData[0].latitude;
+            req.body.campground.lng = geolocationData[0].longitude;
             // req.body.campground.description = req.sanitize(req.body.campground.description);
-            Campground.findByIdAndUpdate(req.params.id, newData, (err, campground) => {
+            Campground.findByIdAndUpdate(req.params.id, req.body.campground, (err, campground) => {
                 if (err || !campground) {
                     console.log(err);
                     req.flash('error', 'The campground you wanted to update could not be found');
