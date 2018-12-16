@@ -2,6 +2,7 @@
     width: 80%;
 }
 
+
 #goBack {
     padding-top: 25px;
 }
@@ -11,10 +12,18 @@ h1 {
     margin: 25px auto;
 }
 
-#formDiv {
+#loginForm, #forgotForm, #registrationForm, #resetForm {
     width: 50%;
     margin: 25px auto;
 }
+#loginForm div a {
+    display: inline-block;
+    margin-top: 25px;
+}
+/* #resetEmailSent {
+    width: 50%;
+   margin: auto;
+} */
 
 #formButtonGroup .form-group,
 #showButtonGroup form {

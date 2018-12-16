@@ -1,7 +1,7 @@
 const express = require('express');
+const NodeGeocoder = require('node-geocoder');
 const Campground = require('../models/campground');
 const middleware = require('../middleware');
-const NodeGeocoder = require('node-geocoder');
 
 const geocoder = NodeGeocoder({
     provider: 'google',
@@ -106,6 +106,7 @@ router.put('/:id', middleware.ensureLoggedIn('/login'), middleware.checkCampgrou
             req.flash('error', 'Invalid Address');
             res.redirect('back');
         } else {
+            // TODO: Change this so that we geocode only if the location has changed.
             // const newData = {};
             // Object.assign(newData, req.body.campground);
             req.body.campground.location = geolocationData[0].formattedAddress;

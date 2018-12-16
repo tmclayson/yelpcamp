@@ -15,6 +15,7 @@ const flash = require('connect-flash');
 
 
 const seedDB = require('./seeds');
+const init = require('./init');
 // const lib = require('./assets/lib/js/mylibrary');
 
 const User = require('./models/user');
@@ -24,14 +25,14 @@ const campgroundRoutes = require('./routes/campgrounds');
 const indexRoutes = require('./routes/index');
 
 // CONFIGURATION ===============================================================
-mongoose.connect('mongodb://localhost/yelpcamp', { useNewUrlParser: true });
+mongoose.connect(`mongodb://${process.env.DB_HOST}/yelpcamp`, { useNewUrlParser: true });
 
 const app = express();
 
 // EXPRESS SETUP
 app.set('view engine', 'ejs');
 app.use(flash());
-app.use(morgan('dev')); // log every request to the console
+// app.use(morgan('dev')); // log every request to the console
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 app.use(breadcrumbs.init());
@@ -70,11 +71,16 @@ app.use('/campgrounds/:id/comments', commentRoutes);
 app.use('/campgrounds', campgroundRoutes);
 
 // seedDB();
-
-// LAUNCH ===============================================================
-app.listen(8080, 'localhost', () => {
-    console.log('Server has started!');
-});
+init()
+    .then(() => {
+        // LAUNCH ===============================================================
+        app.listen(process.env.PORT, 'localhost', () => {
+            console.log('Server has started!');
+        });
+    })
+    .catch((err) => {
+        console.log(err);
+    });
 
 /*
 app.get('/search', (req, res) => {

@@ -1,8 +1,8 @@
-<% include partials/header %>
+<% include ../partials/header %>
 
 <div class="container">
-    <div id="formDiv">
-        <form action="/login" method="POST">
+
+        <form id="loginForm" action="/login" method="POST">
             <div class="form-group">
                 <label for="loginFormEmail">Email</label>
                 <input type="email" class="form-control" id="loginFormEmail" name="email" aria-describedby="emailHelp" placeholder="joe@schmoe.com" required>
@@ -21,10 +21,13 @@
             </div>
 
             <button type="submit" class="btn btn-primary">Submit</button>
+            <div>
+                <a href="/forgot">Forgot your password?</a>
+            </div>
         </form>
-    </div>
+
 </div>
 
 <script src="/javascript/bootstrap-show-password.js"></script>
 
-<% include partials/footer %>
+<% include ../partials/footer %>

@@ -1,6 +1,12 @@
+/* eslint-disable no-lonely-if */
+/* eslint-disable no-shadow */
+/* eslint-disable no-param-reassign */
 /* eslint-disable consistent-return */
 const express = require('express');
 const passport = require('passport');
+const async = require('async');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 const User = require('../models/user');
 
 const router = express.Router({ mergeParams: true });
@@ -17,7 +23,7 @@ router.get('/', (req, res) => {
 // render login form
 router.get('/login', (req, res) => {
     req.breadcrumbs('Login', '/login');
-    res.render('login');
+    res.render('users/login');
 });
 // passport.authenticate passed as middleware
 // router.post('/login', passport.authenticate('local', {
@@ -36,11 +42,181 @@ router.get('/logout', (req, res) => {
     res.redirect('/');
 });
 
+// FORGOTTEN PASSWORD - form
+router.get('/forgot', (req, res) => {
+    req.breadcrumbs('Forgotten Password', '/forgot');
+    res.render('users/forgot');
+});
+
+// FORGOTTEN PASSWORD - generate reset token and send email to user, inviting them to reset their password
+router.post('/forgot', (req, res, next) => {
+    // array of functions that are called one after another
+    async.waterfall([
+        (done) => {
+            // generate a random hexadecimal string
+            crypto.randomBytes(20, (err, buf) => {
+                if (err) {
+                    console.log(err);
+                    req.flash('error', 'There was an error encountered while generating the reset token. The administrator has been notified.');
+                    return res.redirect('/forgot');
+                }
+                const token = buf.toString('hex');
+                done(err, token);
+            });
+        },
+        (token, done) => {
+            User.findOne({ email: req.body.email }, (err, foundUser) => {
+                // if no user with the email given can be found, redirect to forgotten password page and inform user of error
+                if (!foundUser) {
+                    req.flash('error', 'no account with that email address exists');
+                    return res.redirect('/forgot');
+                }
+                // otherwise, save the token and expiry point to the user document in db.
+                foundUser.resetPasswordToken = token;
+                foundUser.resetPasswordExpires = Date.now() + 3600000;
+                console.log('resetPasswordExpires' + foundUser.resetPasswordExpires);
+                foundUser.save((err, updatedUser) => {
+                    if (err) {
+                        console.log(err);
+                        req.flash('error', 'There was an error encountered while saving the token to your user entry. The administrator has been notified.');
+                        return res.redirect('/forgot');
+                    }
+                    done(err, token, updatedUser);
+                });
+            });
+        },
+        (token, user, done) => {
+            const smtpTransport = nodemailer.createTransport({
+                service: 'Gmail',
+                auth: {
+                    user: 'tmclayson@gmail.com',
+                    pass: process.env.GMAILPW,
+                },
+            });
+            // eslint-disable-next-line prefer-template
+            const message = 'You are receiving this because you (or someone else) have requested to reset the\n'
+                + `password associated with the email address ${user.email}. \n\n`
+                + 'Please click on the following link, or paste this link into your browser to complete the process.\n\n'
+                + `http://${req.headers.host}/reset/${token} \n\n`
+                + 'If you did not request this, please ignore this email and your password will remain unchanged.';
+            const mailOptions = {
+                to: user.email,
+                from: 'tmclayson@gmail.com',
+                subject: 'Password Reset',
+                text: message,
+            };
+            smtpTransport.sendMail(mailOptions, () => {
+                console.log(`Recovery email sent to ${user.email}`);
+                req.flash('success', `An email has been sent to ${user.email} with further instructions.`);
+                return res.redirect('/forgot/email-sent');
+            });
+        },
+    ], (err) => {
+        if (err) {
+            next(err);
+        } else {
+            res.redirect('/forgot');
+        }
+    });
+});
+
+// RESET password - form
+router.get('/reset/:token', (req, res) => {
+    User.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } }, (err, user) => {
+        if (!user) {
+            req.flash('error', 'Password reset token is invalid or has expired.');
+            res.redirect('/forgot');
+        } else {
+            req.breadcrumbs('Reset Password', '/reset');
+            res.render('users/reset', { token: req.params.token });
+        }
+    });
+});
+
+// RESET password - save updated password
+router.post('/reset/:token', (req, res) => {
+    async.waterfall([
+        (done) => {
+            User.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } }, (err, foundUser) => {
+                console.log('foundUser' + foundUser);
+                if (!foundUser) {
+                    req.flash('error', 'Password reset token is invalid or has expired.');
+                    return res.redirect('back');
+                }
+
+                if (req.body.newPassword === req.body.confirmPassword) {
+                    foundUser.setPassword(req.body.newPassword, (err) => {
+                        if (err) {
+                            console.log(err);
+                            req.flash('error', 'An error was encountered while attempting to set the new password.');
+                            return res.redirect('back');
+                        }
+                        foundUser.resetPasswordToken = undefined;
+                        foundUser.resetPasswordExpires = undefined;
+                        console.log('foundUser' + foundUser);
+                        foundUser.save((err, updatedUser) => {
+                            if (err) {
+                                console.log(err);
+                                req.flash('error', 'An error was encountered while attempting to save the user document after setting the new password.');
+                                return res.redirect('back');
+                            }
+                            console.log('updatedUser' + updatedUser);
+                            req.login(updatedUser, (err) => {
+                                if (err) {
+                                    console.log(err);
+                                }
+                                done(err, updatedUser);
+                            });
+                        });
+                    });
+                } else {
+                    req.flash('error', 'The passwords entered didn\'t match');
+                    return res.redirect('back');
+                }
+            });
+        },
+        (user, done) => {
+            const smtpTransport = nodemailer.createTransport({
+                service: 'Gmail',
+                auth: {
+                    user: 'tmclayson@gmail.com',
+                    pass: process.env.GMAILPW,
+                },
+            });
+            const mailOptions = {
+                to: user.email,
+                from: 'tmclayson@gmail.com',
+                subject: 'Your password has been changed',
+                text: `Hi,
+
+               This email is to confirm that the password for the account associated with ${user.email} has been changed.`,
+            };
+            smtpTransport.sendMail(mailOptions, (err) => {
+                // TODO: handle error
+                console.log(`The password for the account associated with ${user.email} has been changed`);
+                req.flash('success', 'Success! Your password has been changed.');
+                return res.redirect('/campgrounds');
+            });
+        },
+    ], (err) => {
+        console.log(err);
+        req.flash('error', 'An error was encountered whilst attempting to change your password. The administrator has been informed.');
+        res.redirect('/campgrounds');
+    });
+});
+
+// render login form
+router.get('/forgot/email-sent', (req, res) => {
+    req.breadcrumbs('Password Reset Email Sent', '/forgot/email-sent');
+    res.render('users/forgot_email_sent');
+});
+
 // NEW user form
 router.get('/register', (req, res) => {
     req.breadcrumbs('Register', '/register');
-    res.render('register');
+    res.render('users/register');
 });
+
 // CREATE new user and redirect
 router.post('/register', (req, res, next) => {
     // make a new User object, that isn't saved to the database, yet.

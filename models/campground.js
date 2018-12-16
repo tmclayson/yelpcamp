@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
 // pattern that states what properties a campground has
 const campgroundSchema = new mongoose.Schema({
-    name: String,
+    name: { type: String, require: true },
+    currency: String,
     price: Number,
-    image: String,
-    description: String,
-    location: String,
+    image: { type: String, require: true },
+    description: { type: String, require: true },
+    location: { type: String, require: true },
     lat: Number,
     lng: Number,
     comments: [
