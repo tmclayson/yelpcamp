@@ -8,6 +8,8 @@ const async = require('async');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const User = require('../models/user');
+const Notification = require('../models/notification');
+const middleware = require('../middleware');
 
 const router = express.Router({ mergeParams: true });
 
@@ -15,7 +17,7 @@ router.get('/', (req, res) => {
     res.render('landing');
 });
 
-// router.get('/secret', isLoggedIn, (req, res) => {
+// router.get('/secret', middleware.ensureLoggedIn('/login'), (req, res) => {
 //     req.breadcrumbs('Secret Page!', '/secret');
 //     res.render('secret');
 // });
@@ -40,6 +42,59 @@ router.get('/logout', (req, res) => {
     req.logout();
 
     res.redirect('/');
+});
+
+// user profile
+router.get('/users/:id', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).populate('followers').exec();
+        res.render('users/profile', { user });
+    } catch (err) {
+        req.flash('error', err.message);
+        return res.redirect('back');
+    }
+});
+
+// follow user
+router.get('/follow/:id', middleware.ensureLoggedIn('/login'), async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        user.followers.push(req.user._id);
+        user.save();
+        req.flash('success', `Successfully followed ${user.firstName}!`);
+        res.redirect(`/users/${req.params.id}`);
+    } catch (err) {
+        req.flash('error', err.message);
+        res.redirect('back');
+    }
+});
+
+// view all notifications
+router.get('/notifications', middleware.ensureLoggedIn('/login'), async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id).populate({
+            path: 'notifications',
+            options: { sort: { _id: -1 } },
+        }).exec();
+        const allNotifications = user.notifications;
+        res.render('notifications/index', { allNotifications });
+    } catch (err) {
+        req.flash('error', err.message);
+        res.redirect('back');
+    }
+});
+
+// handle notification
+router.get('/notifications/:id', middleware.ensureLoggedIn('/login'), async (req, res) => {
+    try {
+        const notification = await Notification.findById(req.params.id);
+        notification.isRead = true;
+        notification.save();
+        res.redirect(`/campgrounds/${notification.campgroundId}`);
+    } catch (err) {
+        req.flash('error', err.message);
+        res.redirect('back');
+    }
 });
 
 // FORGOTTEN PASSWORD - form
@@ -74,7 +129,7 @@ router.post('/forgot', (req, res, next) => {
                 // otherwise, save the token and expiry point to the user document in db.
                 foundUser.resetPasswordToken = token;
                 foundUser.resetPasswordExpires = Date.now() + 3600000;
-                console.log('resetPasswordExpires' + foundUser.resetPasswordExpires);
+                console.log(`resetPasswordExpires${foundUser.resetPasswordExpires}`);
                 foundUser.save((err, updatedUser) => {
                     if (err) {
                         console.log(err);
@@ -138,7 +193,7 @@ router.post('/reset/:token', (req, res) => {
     async.waterfall([
         (done) => {
             User.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } }, (err, foundUser) => {
-                console.log('foundUser' + foundUser);
+                console.log(`foundUser${foundUser}`);
                 if (!foundUser) {
                     req.flash('error', 'Password reset token is invalid or has expired.');
                     return res.redirect('back');
@@ -153,14 +208,14 @@ router.post('/reset/:token', (req, res) => {
                         }
                         foundUser.resetPasswordToken = undefined;
                         foundUser.resetPasswordExpires = undefined;
-                        console.log('foundUser' + foundUser);
+                        console.log(`foundUser${foundUser}`);
                         foundUser.save((err, updatedUser) => {
                             if (err) {
                                 console.log(err);
                                 req.flash('error', 'An error was encountered while attempting to save the user document after setting the new password.');
                                 return res.redirect('back');
                             }
-                            console.log('updatedUser' + updatedUser);
+                            console.log(`updatedUser${updatedUser}`);
                             req.login(updatedUser, (err) => {
                                 if (err) {
                                     console.log(err);

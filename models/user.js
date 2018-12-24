@@ -9,6 +9,18 @@ const userSchema = new mongoose.Schema({
     isAdmin: { type: Boolean, default: false },
     resetPasswordToken: String,
     resetPasswordExpires: Date,
+    notifications: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Notification',
+        },
+    ],
+    followers: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+        },
+    ],
 });
 
 userSchema.plugin(passportLocalMongoose, { usernameField: 'email' });

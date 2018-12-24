@@ -7,9 +7,9 @@
     <div class="row">
         <div class="col-3">
             <div class="list-group" id="campInfoLinksCollapse">
-                <a href="#" class="list-group-item list-group-item-action active">Description</a>
-                <a href="#" class="list-group-item list-group-item-action">Facilities</a>
-                <a href="#" class="list-group-item list-group-item-action">Links</a>
+                <a href="#" class="list-group-item active">Description</a>
+                <a href="#" class="list-group-item">Facilities</a>
+                <a href="#" class="list-group-item">Links</a>
             </div>
 
             <div id="map"></div>
@@ -22,7 +22,7 @@
                 <div class="card-body">
                     <h5 class="card-title"><%= campground.name %></h5>
                     <h5 class="card-title text-muted float-right">&euro;<%= campground.price %>/night</h5>
-                    <h6 class="card-title text-muted"><em>Submitted by <%= campground.createdBy.firstName %></em></h6>
+                    <h6 class="card-title text-muted"><em>Submitted by <a href="/users/<%= campground.createdBy.id %>"><%= campground.createdBy.firstName %></a></em></h6>
 
                     <p class="card-text"><%- campground.description %></p>
                     <% if (currentUser && (campground.createdBy.id.equals(currentUser._id) || currentUser.isAdmin)) { %>

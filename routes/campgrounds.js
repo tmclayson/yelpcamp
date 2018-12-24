@@ -1,6 +1,8 @@
 const express = require('express');
 const NodeGeocoder = require('node-geocoder');
 const Campground = require('../models/campground');
+const User = require('../models/user');
+const Notification = require('../models/notification');
 const middleware = require('../middleware');
 
 const geocoder = NodeGeocoder({
@@ -34,7 +36,7 @@ router.get('/new', middleware.ensureLoggedIn('/login'), (req, res) => {
 router.post('/', middleware.ensureLoggedIn('/login'), (req, res) => {
     // req.body.newCampground.description = req.sanitize(req.body.newCampground.description);
 
-    geocoder.geocode(req.body.location, (err, geolocationData) => {
+    geocoder.geocode(req.body.location, async (err, geolocationData) => {
         if (err || !geolocationData.length) {
             req.flash('error', 'Invalid Address');
             res.redirect('back');
@@ -56,19 +58,28 @@ router.post('/', middleware.ensureLoggedIn('/login'), (req, res) => {
                 createdBy: campCreatedBy,
             };
 
-            Campground.create(newCampground, (err, campground) => {
-                if (err) {
-                    console.log(err);
-                } else {
-                    // campground.createdBy.id = req.user._id;
-                    // // just so the name can be easily accessed, instead of having to search for the User db entry every time to get it
-                    // campground.createdBy.firstName = req.user.firstName;
-                    // campground.createdBy.lastName = req.user.lastName;
-                    // campground.save();
-                    req.flash('success', 'Campground created successfully!');
-                    res.redirect(`campgrounds/${campground._id}`);
+            try {
+                const campground = await Campground.create(newCampground);
+                const user = await User.findById(req.user._id).populate('followers').exec();
+                const newNotification = {
+                    username: req.user.username,
+                    campgroundId: campground.id,
+                };
+
+                // eslint-disable-next-line no-restricted-syntax
+                for (const follower of user.followers) {
+                    let notification = await Notification.create(newNotification);
+                    follower.notifications.push(notification);
+                    follower.save();
                 }
-            });
+
+                req.flash('success', 'Campground created successfully!');
+                res.redirect(`campgrounds/${campground._id}`);
+            } catch (err) {
+                console.log(err);
+                req.flash('error', err.message);
+                res.redirect('back');
+            }
         }
     });
 });
@@ -137,7 +148,7 @@ router.delete('/:id', middleware.ensureLoggedIn('/login'), middleware.checkCampg
             res.redirect('back');
         } else {
             req.flash('success', 'Campground deleted successfully!');
-            res.redirect('/');
+            res.redirect('/campgrounds');
         }
     });
 });

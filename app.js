@@ -57,8 +57,17 @@ passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
 // this must come after the passport setup
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
     res.locals.currentUser = req.user;
+    if (req.user) {
+        try {
+            // populate the user's notifications, but only thoe they haven't read yet
+            const user = await User.findById(req.user._id).populate('notifications', null, { isRead: false }).exec();
+            res.locals.notifications = user.notifications.reverse(); // .reverse() outputs in descending order
+        } catch (err) {
+            console.log(err.message);
+        }
+    }
     res.locals.errorMessage = req.flash('error');
     res.locals.successMessage = req.flash('success');
     res.locals.breadcrumbs = req.breadcrumbs();
