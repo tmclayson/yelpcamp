@@ -1,4 +1,4 @@
-const User = require('./models/user');
+const User = require('../../models/user');
 
 module.exports = () => new Promise((resolve) => {
     User.findOne({ email: process.env.ADMIN_EMAIL }, (err, user) => {

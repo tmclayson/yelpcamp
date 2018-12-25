@@ -65,10 +65,11 @@ router.post('/', middleware.ensureLoggedIn('/login'), (req, res) => {
                     username: req.user.username,
                     campgroundId: campground.id,
                 };
-
+                // if there are a very large number of followers this is going to slow down the entire site
+                // TODO: need to delegate this to a background task
                 // eslint-disable-next-line no-restricted-syntax
                 for (const follower of user.followers) {
-                    let notification = await Notification.create(newNotification);
+                    const notification = await Notification.create(newNotification);
                     follower.notifications.push(notification);
                     follower.save();
                 }

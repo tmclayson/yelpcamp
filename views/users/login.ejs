@@ -28,33 +28,6 @@
 
 </div>
 
-<script src="/javascript/bootstrap-show-password.js"></script>
-<script src="/javascript/checkCapsLock.js"></script>
-
-<script>
-    // event is triggerred when the initial HTML document has been completely loaded
-    document.addEventListener('DOMContentLoaded', () => {
-        $('#password').tooltip( {
-            title: 'Caps Lock is on!',
-            trigger: 'manual'
-        });
-        $('#campLocation').tooltip( {
-            title: 'Please enter the address as accurately as you can. If the campground doesn\'t have an address, please use a google maps plus code.',
-        });
-    });
-
-    document.getElementById("password").addEventListener( 'keydown', function( event ) {
-        var caps = event.getModifierState && event.getModifierState( 'CapsLock' );
-        if(caps) {
-            $('#password').tooltip('show');
-        } else {
-            $('#password').tooltip('hide');
-        }
-    });
-
-    $(function () {
-        $('[data-toggle="tooltip"]').tooltip()
-    })
-</script>
+<script src="/javascript/bundle-front.js"></script>
 
 <% include ../partials/footer %>

@@ -1,8 +1,8 @@
 /* eslint-disable no-shadow */
 /* eslint-disable no-param-reassign */
 /* eslint-disable max-len */
-const Campground = require('./models/campground');
-const Comment = require('./models/comment');
+const Campground = require('../../models/campground');
+const Comment = require('../../models/comment');
 
 const data = [
     // {

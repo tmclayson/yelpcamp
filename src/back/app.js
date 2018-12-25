@@ -18,11 +18,11 @@ const seedDB = require('./seeds');
 const init = require('./init');
 // const lib = require('./assets/lib/js/mylibrary');
 
-const User = require('./models/user');
+const User = require('../../models/user');
 // requiring routes
-const commentRoutes = require('./routes/comments');
-const campgroundRoutes = require('./routes/campgrounds');
-const indexRoutes = require('./routes/index');
+const commentRoutes = require('../../routes/comments');
+const campgroundRoutes = require('../../routes/campgrounds');
+const indexRoutes = require('../../routes/index');
 
 // CONFIGURATION ===============================================================
 mongoose.connect(`mongodb://${process.env.DB_HOST}/yelpcamp`, { useNewUrlParser: true });
