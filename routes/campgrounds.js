@@ -1,5 +1,6 @@
 const express = require('express');
 const NodeGeocoder = require('node-geocoder');
+const cloudinary = require('cloudinary');
 const Campground = require('../models/campground');
 const User = require('../models/user');
 const Notification = require('../models/notification');
@@ -15,15 +16,41 @@ const geocoder = NodeGeocoder({
 
 const router = express.Router({ mergeParams: true });
 
+function escapeRegex(text) {
+    return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
 router.get('/', (req, res) => {
-    Campground.find({}, (err, campgrounds) => {
-        if (err) {
-            console.log('err :', err);
-        } else {
-            req.breadcrumbs('All Campgrounds', '/');
-            res.render('campgrounds/index', { campgrounds, breadcrumbs: req.breadcrumbs() });
-        }
-    });
+    if (req.query.search) {
+        // RegExp flags:
+        // g - global match; find all matches rather than stopping after the first match
+        // i - ignore case; if u flag is also enabled, use Unicode case folding
+        const regex = new RegExp(escapeRegex(req.query.search), 'gi');
+
+        Campground.find({ name: regex }, (err, campgrounds) => {
+            if (err) {
+                console.log('err :', err);
+            } else {
+                req.breadcrumbs('All Campgrounds', '/campgrounds');
+                if (campgrounds.length < 1) {
+                    req.flash('error', 'There are no campgrounds we know that match that search');
+                    res.redirect('/campgrounds');
+                } else {
+                    req.breadcrumbs('Search Results', `/campgrounds${req.query.search}`);
+                    res.render('campgrounds/index', { campgrounds });
+                }
+            }
+        });
+    } else {
+        Campground.find({}, (err, campgrounds) => {
+            if (err) {
+                console.log('err :', err);
+            } else {
+                req.breadcrumbs('All Campgrounds', '/');
+                res.render('campgrounds/index', { campgrounds });
+            }
+        });
+    }
 });
 
 // NEW - displays form to create a new campground

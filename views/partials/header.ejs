@@ -24,8 +24,18 @@
         <button class="navbar-toggler-icon d-md-none" type="button" data-toggle="collapse" data-target="#collapsibleNavId" aria-controls="collapsibleNavId"
             aria-expanded="false" aria-label="Toggle navigation"></button>
         <div class="collapse navbar-collapse" id="collapsibleNavId">
-            <ul class="navbar-nav ml-auto mt-2 mt-lg-0">
-                <li class="nav-item active">
+            <ul class="navbar-nav ml-auto mt-2 mt-lg-0">^
+                <form action="/campgrounds" method="GET" class="form-inline my-2 my-lg-0">
+                    <div class="input-group" id="navbar-search">
+                        <input class="form-control py-2 border-right-0 border" type="search" placeholder="search" name="search">
+                        <span class="input-group-append">
+                            <button class="btn btn-outline-secondary border-left-0 border" type="submit">
+                                <i class="fa fa-search"></i>
+                            </button>
+                        </span>
+                    </div>
+                </form>
+                <li class="nav-item">
                     <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
                 </li>
                 <li class="nav-item">

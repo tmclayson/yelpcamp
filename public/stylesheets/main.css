@@ -12,6 +12,10 @@ h1 {
     margin: 25px auto;
 }
 
+#navbar-search button {
+    background-color: white;
+}
+
 #loginForm, #forgotForm, #registrationForm, #resetForm {
     width: 50%;
     margin: 25px auto;

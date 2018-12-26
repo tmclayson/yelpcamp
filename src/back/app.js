@@ -37,7 +37,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 app.use(breadcrumbs.init());
 app.use(breadcrumbs.setHome({
-    name: 'Welcome',
+    name: 'Landing',
 }));
 app.use(express.static('public'));
 
