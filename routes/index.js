@@ -208,19 +208,19 @@ router.post('/reset/:token', (req, res) => {
                         }
                         foundUser.resetPasswordToken = undefined;
                         foundUser.resetPasswordExpires = undefined;
-                        console.log(`foundUser${foundUser}`);
-                        foundUser.save((err, updatedUser) => {
+                        // console.log(`foundUser${foundUser}`);
+                        foundUser.save((err, foundUser) => {
                             if (err) {
                                 console.log(err);
                                 req.flash('error', 'An error was encountered while attempting to save the user document after setting the new password.');
                                 return res.redirect('back');
                             }
-                            console.log(`updatedUser${updatedUser}`);
-                            req.login(updatedUser, (err) => {
+                            console.log(`updatedUser${foundUser}`);
+                            req.login(foundUser, (err) => {
                                 if (err) {
                                     console.log(err);
                                 }
-                                done(err, updatedUser);
+                                done(err, foundUser);
                             });
                         });
                     });
