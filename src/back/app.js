@@ -8,13 +8,12 @@ const breadcrumbs = require('express-breadcrumbs');
 const passport = require('passport');
 // const localStrategy = require('passport-local').Strategy;
 const mongoose = require('mongoose');
-const morgan = require('morgan');
 const session = require('express-session');
 const MemoryStore = require('memorystore')(session);
 const flash = require('connect-flash');
 
 
-const seedDB = require('./seeds');
+// const seedDB = require('./seeds');
 const init = require('./init');
 // const lib = require('./assets/lib/js/mylibrary');
 
