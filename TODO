@@ -4,5 +4,6 @@ Todos:
     ☐ Extend navbar colouring across page, but keep the nav elements centered as they are currently
     ☐ Add an actual homepage
     ☐ If there are no reviews yet, then add a message to tell the user
+    ☐ Add a link to register instead on login screen incase the user is new
   ? Add embedded TODOs
 

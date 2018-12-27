@@ -1,11 +1,40 @@
+/* eslint-disable no-shadow */
 const express = require('express');
 const NodeGeocoder = require('node-geocoder');
 const cloudinary = require('cloudinary');
+const multer = require('multer');
 const Campground = require('../models/campground');
 const User = require('../models/user');
 const Notification = require('../models/notification');
 const middleware = require('../middleware');
 
+// multer configuration
+
+// configures multer to use a custom filename for each upload
+const storage = multer.diskStorage({
+    filename: function filename(req, file, callback) {
+        callback(null, `${Date.now()} - ${file.originalname}`);
+    },
+});
+// configures multer to only allow image files, returning an error if a non-image file is uploaded
+// eslint-disable-next-line consistent-return
+const fileFilter = (req, file, cb) => {
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+        return cb(new Error('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+};
+const upload = multer({ storage, fileFilter });
+
+// cloudinary setup
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: 's4cR-nwfkX5et_jBHI_2-i1MPqc',
+    // api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// geocoder setup
 const geocoder = NodeGeocoder({
     provider: 'google',
     // Optional depending on the providers
@@ -60,10 +89,10 @@ router.get('/new', middleware.ensureLoggedIn('/login'), (req, res) => {
     res.render('campgrounds/new');
 });
 // CREATE - add a new campground to DB
-router.post('/', middleware.ensureLoggedIn('/login'), (req, res) => {
+router.post('/', middleware.ensureLoggedIn('/login'), upload.single('imageUpload'), (req, res) => {
     // req.body.newCampground.description = req.sanitize(req.body.newCampground.description);
 
-    geocoder.geocode(req.body.location, async (err, geolocationData) => {
+    geocoder.geocode(req.body.campground.location, async (err, geolocationData) => {
         if (err || !geolocationData.length) {
             req.flash('error', 'Invalid Address');
             res.redirect('back');
@@ -75,39 +104,64 @@ router.post('/', middleware.ensureLoggedIn('/login'), (req, res) => {
             };
 
             const newCampground = {
-                name: req.body.name,
-                image: req.body.image,
-                description: req.body.description,
-                price: req.body.price,
+                name: req.body.campground.name,
+                description: req.body.campground.description,
+                price: req.body.campground.price,
                 location: geolocationData[0].formattedAddress,
                 lat: geolocationData[0].latitude,
                 lng: geolocationData[0].longitude,
                 createdBy: campCreatedBy,
+                images: [],
             };
 
-            try {
-                const campground = await Campground.create(newCampground);
-                const user = await User.findById(req.user._id).populate('followers').exec();
-                const newNotification = {
-                    username: req.user.username,
-                    campgroundId: campground.id,
-                };
-                // if there are a very large number of followers this is going to slow down the entire site
-                // TODO: need to delegate this to a background task
-                // eslint-disable-next-line no-restricted-syntax
-                for (const follower of user.followers) {
-                    const notification = await Notification.create(newNotification);
-                    follower.notifications.push(notification);
-                    follower.save();
-                }
+            const images = [];
+            if (req.body.campground.imageUrl) images.push(req.body.campground.imageUrl);
+            if (req.file.path) images.push(req.file.path);
+            // The function passed to new Promise is called the executor.
+            // The resulting promise object has internal properties:
+            // state — initially “pending”, then changes to either “fulfilled” or “rejected”,
+            // result — an arbitrary value of your choosing, initially undefined.
+            const resPromises = images.map(image => new Promise((resolve, reject) => {
+                cloudinary.v2.uploader.upload(image, (err, result) => {
+                    if (err) reject(err);
+                    // sets state to "fulfilled",
+                    // sets result to result.secure_url
+                    else resolve(result.secure_url);
+                });
+            }));
+            // It takes an iterable object with promises, technically it can be any iterable, but usually it’s an array,
+            // and returns a new promise. The new promise resolves with when all of them are settled and has an array of their results.
+            Promise.all(resPromises)
+                .then(async (secureUrls) => {
+                    secureUrls.forEach(url => newCampground.images.push(url));
+                    try {
+                        const campground = await Campground.create(newCampground);
+                        const user = await User.findById(req.user._id).populate('followers').exec();
+                        const newNotification = {
+                            username: req.user.username,
+                            campgroundId: campground.id,
+                        };
+                        // if there are a very large number of followers this is going to slow down the entire site
+                        // TODO: need to delegate this to a background task
+                        // eslint-disable-next-line no-restricted-syntax
+                        for (const follower of user.followers) {
+                            // eslint-disable-next-line no-await-in-loop
+                            const notification = await Notification.create(newNotification);
+                            follower.notifications.push(notification);
+                            follower.save();
+                        }
 
-                req.flash('success', 'Campground created successfully!');
-                res.redirect(`campgrounds/${campground._id}`);
-            } catch (err) {
-                console.log(err);
-                req.flash('error', err.message);
-                res.redirect('back');
-            }
+                        req.flash('success', 'Campground created successfully!');
+                        res.redirect(`campgrounds/${campground._id}`);
+                    } catch (err) {
+                        console.log(err);
+                        req.flash('error', err.message);
+                        res.redirect('back');
+                    }
+                })
+                .catch(err => console.log(err));
+
+            console.log(newCampground);
         }
     });
 });

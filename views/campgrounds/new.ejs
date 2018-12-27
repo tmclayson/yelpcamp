@@ -5,26 +5,30 @@
         <h1>Create a New Campground</h1>
 
         <div id="formDiv">
-            <form action='/campgrounds' method='POST'>
+            <form action='/campgrounds' method='POST' enctype="multipart/form-data">
                 <div class="form-group">
                     <label for="campName">Name</label>
-                    <input class="form-control" type="text" name="name" id="campName" placeholder="Ye olde campsite...">
+                    <input class="form-control" type="text" name="campground[name]" id="campName" placeholder="Ye olde campsite...">
                 </div>
                 <div class="form-group">
                     <label for="campPrice">Price</label>
-                    <input class="form-control" type="number" name="price" id="campPrice" min="0.01" step="0.01" placeholder="€/night" data-toggle="tooltip" data-placement="right">
+                    <input class="form-control" type="number" name="campground[price]" id="campPrice" min="0.01" step="0.01" placeholder="€/night" data-toggle="tooltip" data-placement="right">
                 </div>
                 <div class="form-group">
                     <label for="campLocation">Location</label>
-                    <input class="form-control" type="text" name="location" id="campLocation" placeholder="Yosemite..." data-toggle="tooltip" data-placement="right">
+                    <input class="form-control" type="text" name="campground[location]" id="campLocation" placeholder="Yosemite..." data-toggle="tooltip" data-placement="right">
                 </div>
                 <div class="form-group">
                     <label for="campImage">Image URL</label>
-                    <input class="form-control" type="text" name="image" id="campImage" placeholder="http://...">
+                    <input class="form-control" type="text" name="campground[imageUrl]" id="campImage" placeholder="http://...">
+                </div>
+                <div class="form-group">
+                    <label for="camp-image-upload">Image URL</label>
+                    <input type="file" name="imageUpload" id="camp-image-upload" accept="image/*" required>
                 </div>
                 <div class="form-group">
                     <label for="campDescription">Description</label>
-                    <textarea rows="4" class="form-control" type="text" name="description" id="campDescription" placeholder="This campsite changed my life..."></textarea>
+                    <textarea rows="4" class="form-control" type="text" name="campground[description]" id="campDescription" placeholder="This campsite changed my life..."></textarea>
                 </div>
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">Submit</button>
