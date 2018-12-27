@@ -30,8 +30,8 @@ const upload = multer({ storage, fileFilter });
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: 's4cR-nwfkX5et_jBHI_2-i1MPqc',
-    // api_secret: process.env.CLOUDINARY_API_SECRET,
+    // api_secret: 's4cR-nwfkX5et_jBHI_2-i1MPqc',
+    api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 // geocoder setup
