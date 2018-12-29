@@ -268,7 +268,9 @@ const campgroundSchema = new mongoose.Schema({
     name: { type: String, require: true, unique: true },
     currency: String,
     price: Number,
-    image: { type: String, require: true },
+    images: [
+        { type: String },
+    ],
     description: { type: String, require: true },
     location: { type: String, require: true },
     lat: Number,
@@ -389,21 +391,34 @@ module.exports = mongoose.model('User', userSchema);
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
+/* eslint-disable no-shadow */
 const express = __webpack_require__(/*! express */ "express");
-const NodeGeocoder = __webpack_require__(/*! node-geocoder */ "node-geocoder");
-const cloudinary = __webpack_require__(/*! cloudinary */ "cloudinary");
+
+const multer = __webpack_require__(/*! multer */ "multer");
+const geocoder = __webpack_require__(/*! ../src/back/geocoder */ "./src/back/geocoder.js");
+const cloudinary = __webpack_require__(/*! ../src/back/cloudinary */ "./src/back/cloudinary.js");
 const Campground = __webpack_require__(/*! ../models/campground */ "./models/campground.js");
 const User = __webpack_require__(/*! ../models/user */ "./models/user.js");
 const Notification = __webpack_require__(/*! ../models/notification */ "./models/notification.js");
 const middleware = __webpack_require__(/*! ../middleware */ "./middleware/index.js");
 
-const geocoder = NodeGeocoder({
-    provider: 'google',
-    // Optional depending on the providers
-    httpAdapter: 'https', // Default
-    apiKey: process.env.GEOCODER_API_KEY,
-    formatter: null,
+// multer configuration
+
+// configures multer to use a custom filename for each upload
+const storage = multer.diskStorage({
+    filename: function filename(req, file, callback) {
+        callback(null, `${Date.now()} - ${file.originalname}`);
+    },
 });
+// configures multer to only allow image files, returning an error if a non-image file is uploaded
+// eslint-disable-next-line consistent-return
+const fileFilter = (req, file, cb) => {
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+        return cb(new Error('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+};
+const upload = multer({ storage, fileFilter });
 
 const router = express.Router({ mergeParams: true });
 
@@ -421,16 +436,16 @@ router.get('/', (req, res) => {
         Campground.find({ name: regex }, (err, campgrounds) => {
             if (err) {
                 console.log('err :', err);
-            } else {
-                req.breadcrumbs('All Campgrounds', '/campgrounds');
-                if (campgrounds.length < 1) {
-                    req.flash('error', 'There are no campgrounds we know that match that search');
-                    res.redirect('/campgrounds');
-                } else {
-                    req.breadcrumbs('Search Results', `/campgrounds${req.query.search}`);
-                    res.render('campgrounds/index', { campgrounds });
-                }
+                req.flash('error', 'An error was encountered whilst attempting the search');
+                return res.redirect('/campgrounds');
             }
+            req.breadcrumbs('All Campgrounds', '/campgrounds');
+            if (campgrounds.length < 1) {
+                req.flash('error', 'There are no campgrounds we know that match that search');
+                return res.redirect('/campgrounds');
+            }
+            req.breadcrumbs('Search Results', `/campgrounds${req.query.search}`);
+            return res.render('campgrounds/index', { campgrounds });
         });
     } else {
         Campground.find({}, (err, campgrounds) => {
@@ -451,10 +466,10 @@ router.get('/new', middleware.ensureLoggedIn('/login'), (req, res) => {
     res.render('campgrounds/new');
 });
 // CREATE - add a new campground to DB
-router.post('/', middleware.ensureLoggedIn('/login'), (req, res) => {
+router.post('/', middleware.ensureLoggedIn('/login'), upload.single('imageUpload'), (req, res) => {
     // req.body.newCampground.description = req.sanitize(req.body.newCampground.description);
 
-    geocoder.geocode(req.body.location, async (err, geolocationData) => {
+    geocoder.geocode(req.body.campground.location, async (err, geolocationData) => {
         if (err || !geolocationData.length) {
             req.flash('error', 'Invalid Address');
             res.redirect('back');
@@ -466,39 +481,64 @@ router.post('/', middleware.ensureLoggedIn('/login'), (req, res) => {
             };
 
             const newCampground = {
-                name: req.body.name,
-                image: req.body.image,
-                description: req.body.description,
-                price: req.body.price,
+                name: req.body.campground.name,
+                description: req.body.campground.description,
+                price: req.body.campground.price,
                 location: geolocationData[0].formattedAddress,
                 lat: geolocationData[0].latitude,
                 lng: geolocationData[0].longitude,
                 createdBy: campCreatedBy,
+                images: [],
             };
 
-            try {
-                const campground = await Campground.create(newCampground);
-                const user = await User.findById(req.user._id).populate('followers').exec();
-                const newNotification = {
-                    username: req.user.username,
-                    campgroundId: campground.id,
-                };
-                // if there are a very large number of followers this is going to slow down the entire site
-                // TODO: need to delegate this to a background task
-                // eslint-disable-next-line no-restricted-syntax
-                for (const follower of user.followers) {
-                    const notification = await Notification.create(newNotification);
-                    follower.notifications.push(notification);
-                    follower.save();
-                }
+            const images = [];
+            if (req.body.campground.imageUrl) images.push(req.body.campground.imageUrl);
+            if (req.file.path) images.push(req.file.path);
+            // The function passed to new Promise is called the executor.
+            // The resulting promise object has internal properties:
+            // state — initially “pending”, then changes to either “fulfilled” or “rejected”,
+            // result — an arbitrary value of your choosing, initially undefined.
+            const resPromises = images.map(image => new Promise((resolve, reject) => {
+                cloudinary.v2.uploader.upload(image, (err, result) => {
+                    if (err) reject(err);
+                    // sets state to "fulfilled",
+                    // sets result to result.secure_url
+                    else resolve(result.secure_url);
+                });
+            }));
+            // It takes an iterable object with promises, technically it can be any iterable, but usually it’s an array,
+            // and returns a new promise. The new promise resolves with when all of them are settled and has an array of their results.
+            Promise.all(resPromises)
+                .then(async (secureUrls) => {
+                    secureUrls.forEach(url => newCampground.images.push(url));
+                    try {
+                        const campground = await Campground.create(newCampground);
+                        const user = await User.findById(req.user._id).populate('followers').exec();
+                        const newNotification = {
+                            username: req.user.username,
+                            campgroundId: campground.id,
+                        };
+                        // if there are a very large number of followers this is going to slow down the entire site
+                        // TODO: need to delegate this to a background task
+                        // eslint-disable-next-line no-restricted-syntax
+                        for (const follower of user.followers) {
+                            // eslint-disable-next-line no-await-in-loop
+                            const notification = await Notification.create(newNotification);
+                            follower.notifications.push(notification);
+                            follower.save();
+                        }
 
-                req.flash('success', 'Campground created successfully!');
-                res.redirect(`campgrounds/${campground._id}`);
-            } catch (err) {
-                console.log(err);
-                req.flash('error', err.message);
-                res.redirect('back');
-            }
+                        req.flash('success', 'Campground created successfully!');
+                        res.redirect(`campgrounds/${campground._id}`);
+                    } catch (err) {
+                        console.log(err);
+                        req.flash('error', err.message);
+                        res.redirect('back');
+                    }
+                })
+                .catch(err => console.log(err));
+
+            console.log(newCampground);
         }
     });
 });
@@ -514,8 +554,8 @@ router.get('/:id', (req, res) => {
             res.redirect('back');
         } else {
             req.breadcrumbs('All Campgrounds', '/campgrounds');
-            req.breadcrumbs(campground.name, `//${campground.id}`);
-            res.render('campgrounds/show', { campground, breadcrumbs: req.breadcrumbs() });
+            req.breadcrumbs(campground.name, `/campgrounds/${campground.id}`);
+            res.render('campgrounds/show', { campground });
         }
     });
 });
@@ -524,9 +564,9 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', middleware.ensureLoggedIn('/login'), middleware.checkCampgroundOwnership, (req, res) => {
     Campground.findById(req.params.id).populate('comments').exec((err, campground) => {
         req.breadcrumbs('All Campgrounds', '/campgrounds');
-        req.breadcrumbs(campground.name, `//${campground.id}`);
-        req.breadcrumbs('Edit', `//${campground.id}/edit`);
-        res.render('campgrounds/edit', { campground, breadcrumbs: req.breadcrumbs() });
+        req.breadcrumbs(campground.name, `/campgrounds/${campground.id}`);
+        req.breadcrumbs('Edit', `/campgrounds/${campground.id}/edit`);
+        res.render('campgrounds/edit', { campground });
     });
 });
 // UPDATE - save the edited campground
@@ -838,9 +878,12 @@ router.post('/forgot', (req, res, next) => {
                     return res.redirect('/forgot');
                 }
                 const token = buf.toString('hex');
-                done(err, token);
+                // We are calling the done function with two arguments: the first argument is any error that we want to pass
+                // to the next step, and the second argument is the actual result or value that we want to pass to the next step
+                done(null, token);
             });
         },
+        // Every step function takes two arguments, the first of which is the result from the previous step
         (token, done) => {
             User.findOne({ email: req.body.email }, (err, foundUser) => {
                 // if no user with the email given can be found, redirect to forgotten password page and inform user of error
@@ -858,11 +901,11 @@ router.post('/forgot', (req, res, next) => {
                         req.flash('error', 'There was an error encountered while saving the token to your user entry. The administrator has been notified.');
                         return res.redirect('/forgot');
                     }
-                    done(err, token, updatedUser);
+                    done(null, token, updatedUser);
                 });
             });
         },
-        (token, user, done) => {
+        (token, user) => {
             const smtpTransport = nodemailer.createTransport({
                 service: 'Gmail',
                 auth: {
@@ -913,7 +956,7 @@ router.get('/reset/:token', (req, res) => {
 // RESET password - save updated password
 router.post('/reset/:token', (req, res) => {
     async.waterfall([
-        (done) => {
+        function postResetStep1(done) {
             User.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } }, (err, foundUser) => {
                 console.log(`foundUser${foundUser}`);
                 if (!foundUser) {
@@ -942,7 +985,7 @@ router.post('/reset/:token', (req, res) => {
                                 if (err) {
                                     console.log(err);
                                 }
-                                done(err, foundUser);
+                                done(null, foundUser);
                             });
                         });
                     });
@@ -952,7 +995,7 @@ router.post('/reset/:token', (req, res) => {
                 }
             });
         },
-        (user, done) => {
+        function postResetStep2(user) {
             const smtpTransport = nodemailer.createTransport({
                 service: 'Gmail',
                 auth: {
@@ -969,16 +1012,21 @@ router.post('/reset/:token', (req, res) => {
                This email is to confirm that the password for the account associated with ${user.email} has been changed.`,
             };
             smtpTransport.sendMail(mailOptions, (err) => {
-                // TODO: handle error
+                if (err) {
+                    console.log(err);
+                    req.flash('error', 'An error was encountered while attempting to send the password change confirmation email');
+                }
                 console.log(`The password for the account associated with ${user.email} has been changed`);
                 req.flash('success', 'Success! Your password has been changed.');
                 return res.redirect('/campgrounds');
             });
         },
     ], (err) => {
-        console.log(err);
-        req.flash('error', 'An error was encountered whilst attempting to change your password. The administrator has been informed.');
-        res.redirect('/campgrounds');
+        if (err) {
+            console.log(err);
+            req.flash('error', 'An error was encountered whilst attempting to change your password. The administrator has been informed.');
+            return res.redirect('/campgrounds');
+        }
     });
 });
 
@@ -1061,14 +1109,13 @@ const breadcrumbs = __webpack_require__(/*! express-breadcrumbs */ "express-brea
 const passport = __webpack_require__(/*! passport */ "passport");
 // const localStrategy = require('passport-local').Strategy;
 const mongoose = __webpack_require__(/*! mongoose */ "mongoose");
-const morgan = __webpack_require__(/*! morgan */ "morgan");
 const session = __webpack_require__(/*! express-session */ "express-session");
 const MemoryStore = __webpack_require__(/*! memorystore */ "memorystore")(session);
 const flash = __webpack_require__(/*! connect-flash */ "connect-flash");
 
 
-const seedDB = __webpack_require__(/*! ./seeds */ "./src/back/seeds.js");
-const init = __webpack_require__(/*! ./init */ "./src/back/init.js");
+const seedCampgrounds = __webpack_require__(/*! ./seedCampgrounds */ "./src/back/seedCampgrounds.js");
+const seedUsers = __webpack_require__(/*! ./seedUsers */ "./src/back/seedUsers.js");
 // const lib = require('./assets/lib/js/mylibrary');
 
 const User = __webpack_require__(/*! ../../models/user */ "./models/user.js");
@@ -1077,6 +1124,8 @@ const commentRoutes = __webpack_require__(/*! ../../routes/comments */ "./routes
 const campgroundRoutes = __webpack_require__(/*! ../../routes/campgrounds */ "./routes/campgrounds.js");
 const indexRoutes = __webpack_require__(/*! ../../routes/index */ "./routes/index.js");
 
+const args = process.argv.slice(2);
+const seedCampgroundsArg = Boolean(args[0]);
 // CONFIGURATION ===============================================================
 mongoose.connect(`mongodb://${process.env.DB_HOST}/yelpcamp`, { useNewUrlParser: true });
 
@@ -1132,18 +1181,18 @@ app.use('/', indexRoutes);
 app.use('/campgrounds/:id/comments', commentRoutes);
 app.use('/campgrounds', campgroundRoutes);
 
-// seedDB();
-init()
-    .then(() => {
-        // LAUNCH ===============================================================
-        app.listen(process.env.PORT, 'localhost', () => {
-            console.log('Server has started!');
+if (seedUsers()) {
+    seedCampgrounds(seedCampgroundsArg)
+        .then(() => {
+            // LAUNCH ===============================================================
+            app.listen(process.env.PORT, 'localhost', () => {
+                console.log('Server has started!');
+            });
+        })
+        .catch((err) => {
+            console.log(err);
         });
-    })
-    .catch((err) => {
-        console.log(err);
-    });
-
+}
 /*
 app.get('/search', (req, res) => {
     res.render('search');
@@ -1221,136 +1270,261 @@ app.get('/posts', (req, res) => {
 
 /***/ }),
 
-/***/ "./src/back/init.js":
-/*!**************************!*\
-  !*** ./src/back/init.js ***!
-  \**************************/
+/***/ "./src/back/cloudinary.js":
+/*!********************************!*\
+  !*** ./src/back/cloudinary.js ***!
+  \********************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-const User = __webpack_require__(/*! ../../models/user */ "./models/user.js");
+const cloudinary = __webpack_require__(/*! cloudinary */ "cloudinary");
+// cloudinary setup
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-module.exports = () => new Promise((resolve) => {
-    User.findOne({ email: process.env.ADMIN_EMAIL }, (err, user) => {
+module.exports = cloudinary;
 
-        if (err) {
-            throw err;
-        }
 
-        console.log(user);
+/***/ }),
 
-        if (user === null) {
-            User.register(new User({
-                email: process.env.ADMIN_EMAIL,
-                firstName: '',
-                lastName: '',
-                isAdmin: true,
-            }), process.env.ADMIN_PASSWORD, (err) => {
-                if (err) {
-                    throw err;
-                } else {
-                    resolve();
-                }
-            });
-        } else {
-            resolve();
-        }
-    });
+/***/ "./src/back/geocoder.js":
+/*!******************************!*\
+  !*** ./src/back/geocoder.js ***!
+  \******************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+const NodeGeocoder = __webpack_require__(/*! node-geocoder */ "node-geocoder");
+// geocoder setup
+module.exports = NodeGeocoder({
+    provider: 'google',
+    // Optional depending on the providers
+    httpAdapter: 'https', // Default
+    apiKey: process.env.GEOCODER_API_KEY,
+    formatter: null,
 });
 
 
 /***/ }),
 
-/***/ "./src/back/seeds.js":
-/*!***************************!*\
-  !*** ./src/back/seeds.js ***!
-  \***************************/
+/***/ "./src/back/seedCampgrounds.js":
+/*!*************************************!*\
+  !*** ./src/back/seedCampgrounds.js ***!
+  \*************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
+/* eslint-disable no-await-in-loop */
+/* eslint-disable no-restricted-syntax */
 /* eslint-disable no-shadow */
 /* eslint-disable no-param-reassign */
 /* eslint-disable max-len */
+const faker = __webpack_require__(/*! faker */ "faker");
+const cloudinary = __webpack_require__(/*! ./cloudinary */ "./src/back/cloudinary.js");
+const geocoder = __webpack_require__(/*! ./geocoder */ "./src/back/geocoder.js");
 const Campground = __webpack_require__(/*! ../../models/campground */ "./models/campground.js");
 const Comment = __webpack_require__(/*! ../../models/comment */ "./models/comment.js");
+const User = __webpack_require__(/*! ../../models/user */ "./models/user.js");
 
-const data = [
-    // {
-    //     name: "Cloud's Rest",
-    //     image: 'https://farm4.staticflickr.com/3795/10131087094_c1c0a1c859.jpg',
-    //     price: 5,
-    //     description: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum',
-    // },
-    // {
-    //     name: 'Desert Mesa',
-    //     image: 'https://farm6.staticflickr.com/5487/11519019346_f66401b6c1.jpg',
-    //     price: 8,
-    //     description: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum',
-    // },
-    // {
-    //     name: 'Canyon Floor',
-    //     image: 'https://farm1.staticflickr.com/189/493046463_841a18169e.jpg',
-    //     price: 11,
-    //     description: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum',
-    // },
+const seeds = [
     {
         name: 'Guadarama',
-        image: 'https://farm4.staticflickr.com/3795/10131087094_c1c0a1c859.jpg',
+        images: [
+            './seed_images/adrian-393713-unsplash.jpg',
+            './seed_images/andrew-gloor-576177-unsplash.jpg',
+            './seed_images/arthur-poulin-96074-unsplash.jpg',
+        ],
+        location: 'MCP2+XW Biblis',
         price: 8,
-        description: 'Its a word in Spanish. Near Madrid originally. Americans stole it as is their habit.',
+        description: faker.lorem.paragraphs(),
     },
     {
         name: 'Mountain Goat\'s Rest',
-        image: 'https://farm3.staticflickr.com/2839/11407596925_481e8aab72_o_d.jp',
+        images: [
+            './seed_images/le-tan-640851-unsplash.jpg',
+            './seed_images/chang-duong-372813-unsplash.jpg',
+            './seed_images/chris-holder-658988-unsplash.jpg',
+        ],
+        location: 'CQ2H+GM Neckargemünd',
         price: 27,
-        description: 'Mountain goats tend to like to rest here. You may or may not like that. They can smell.',
+        description: faker.lorem.paragraphs(),
     },
     {
         name: 'Granite Hill',
+        images: [
+            './seed_images/leon-contreras-447372-unsplash.jpg',
+            './seed_images/WaffleFarmCampground_EarlyMorning-Slide.jpg',
+            './seed_images/daan-weijers-668960-unsplash.jpg',
+        ],
+        location: 'FF3R+32 Ca',
         price: 42,
-        image: 'https://upload.wikimedia.org/wikipedia/commons/f/f6/Deep_Lake_tenting_campsite_-_Riding_Mountain_National_Park.JPG',
-        description: 'A huge granite hill, no bathrooms. No water. Just granite.',
+        description: faker.lorem.paragraphs(),
     },
     {
-        name: 'Salmon Creek',
+        name: 'Campsite Grindavik - Tjaldsvaedi',
+        images: [
+            './seed_images/daniel-nainggolan-409972-unsplash.jpg',
+            './seed_images/danka-peter-178-unsplash.jpg',
+            './seed_images/edward-virvel-658274-unsplash.jpg',
+        ],
+        location: 'Austurvegur 26, 240 Grindavik, Iceland',
         price: 12,
-        image: 'https://upload.wikimedia.org/wikipedia/commons/2/22/Campsites_%286105930497%29.jpg',
-        description: 'A creek with a lot of Salmon in it',
+        description: faker.lorem.paragraphs(),
+    },
+    {
+        name: 'Sutton Falls',
+        images: [
+            './seed_images/esther-tuttle-566634-unsplash.jpg',
+            './seed_images/jonathan-forage-367660-unsplash.jpg',
+            './seed_images/glen-jackson-242973-unsplash.jpg',
+        ],
+        location: '90 Manchaug Rd, Sutton, MA 01590, USA',
+        price: 8.99,
+        description: faker.lorem.paragraphs(),
     },
 ];
 
-function seedDB() {
-    // Remove all campgrounds
-    Campground.remove({}, (err) => {
-        if (err) {
-            console.log(err);
-        }
-        console.log('removed campgrounds!');
-        Comment.remove({}, (err) => {
-            if (err) {
-                console.log(err);
+async function seedCampgrounds(seedControl) {
+    if (seedControl === true) {
+        try {
+            await Comment.remove({});
+            console.log('comments removed');
+            await Campground.remove({});
+            console.log('campgrounds removed');
+            const seedUser = await User.findOne({ email: process.env.SEEDER_EMAIL });
+            const commentUser = await User.findOne({ email: process.env.COMMENTER_EMAIL });
+            if (seedUser != null && commentUser != null) {
+                return seedDB(seedUser, commentUser);
             }
-            console.log('removed comments!');
-            // add a few campgrounds
-            // data.forEach((seed) => {
-            //     Campground.create(seed, (err, campground) => {
-            //         if (err) {
-            //             console.log(err);
-            //         } else {
-            //             console.log('added a campground');
-            //             campground.createdBy.id = '5c12444c89190b2f78082566';
-            //             campground.createdBy.firstName = 'admin';
-            //             campground.createdBy.lastName = 'istrator';
-            //             campground.save();
-            //         }
-            //     });
-            // });
-        });
-    });
-    // add a few comments
+        } catch (err) {
+            console.log(err);
+            throw err;
+        }
+    }
+
+    return Promise.resolve();
+}
+// destructure the array of results passed in, ignoring the first two values
+async function seedDB(seedUser, commentUser) {
+    const campCreatedBy = {
+        id: seedUser._id,
+        firstName: seedUser.firstName,
+        lastName: seedUser.lastName,
+    };
+
+    for (const seed of seeds) {
+        seed.createdBy = campCreatedBy;
+
+        try {
+            // upload the images to cloudinary and then save the returned urls to the seed
+            const cloudinaryUrls = await uploadImagesToCloudinary(seed.images);
+            seed.images = [];
+            cloudinaryUrls.forEach((cloudinaryUrl) => {
+                // need to clear the paths to the local files before push in the cloudinary urls.
+                seed.images.push(cloudinaryUrl);
+            });
+            // geocode the location provided, wait for the result, and save to the seed object
+            const geolocationData = await geocoder.geocode(seed.location);
+            seed.location = geolocationData[0].formattedAddress;
+            seed.location = geolocationData[0].latitude;
+            seed.location = geolocationData[0].longitude;
+            // start creating the campground and comments simultaneously, but wait for their results
+            const campground = await Campground.create(seed);
+            const comment = await Comment.create({
+                text: faker.lorem.sentence(),
+                author: {
+                    id: commentUser.id,
+                    firstName: commentUser.firstName,
+                    lastName: commentUser.lastName,
+                },
+            });
+            // finally, associatiate the comment to the campground and save back to the db.
+            campground.comments.push(comment);
+            campground.save();
+            console.log('campground created');
+        } catch (err) {
+            console.log(err);
+            throw err;
+        }
+    }
 }
 
-module.exports = seedDB;
+function uploadImagesToCloudinary(images) {
+    return Promise.all(images.map(image => new Promise((resolve, reject) => {
+        cloudinary.v2.uploader.upload(image, (err, result) => {
+            if (err) reject(err);
+            // sets state to "fulfilled",
+            // sets result to result.secure_url
+            else resolve(result.secure_url);
+        });
+    })));
+}
+
+module.exports = seedCampgrounds;
+
+
+/***/ }),
+
+/***/ "./src/back/seedUsers.js":
+/*!*******************************!*\
+  !*** ./src/back/seedUsers.js ***!
+  \*******************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+const User = __webpack_require__(/*! ../../models/user */ "./models/user.js");
+
+function seedUsers() {
+    const adminUser = {
+        email: process.env.ADMIN_EMAIL,
+        firstName: '',
+        lastName: '',
+        isAdmin: true,
+    };
+    const dataSeeder = {
+        email: process.env.SEEDER_EMAIL,
+        firstName: 'Thomas',
+        lastName: 'Clayson',
+        isAdmin: false,
+    };
+    const commenter = {
+        email: process.env.COMMENTER_EMAIL,
+        firstName: 'Hermione',
+        lastName: 'Granger',
+        isAdmin: false,
+    };
+
+    try {
+        findOrCreateUser(adminUser, process.env.ADMIN_PASSWORD);
+        findOrCreateUser(dataSeeder, process.env.SEEDER_PASSWORD);
+        findOrCreateUser(commenter, process.env.COMMENTER_PASSWORD);
+    } catch (err) {
+        console.log(err);
+        return false;
+    }
+    return true;
+}
+
+async function findOrCreateUser(userToFindOrCreate, password) {
+    try {
+        const foundUser = await User.findOne({ email: userToFindOrCreate.email });
+        if (foundUser === null) {
+            User.register(new User(userToFindOrCreate), password, (err, user) => {
+                if (err) {
+                    console.log(err);
+                }
+                console.log(user);
+            });
+        }
+    } catch (err) {
+        throw err;
+    }
+}
+
+module.exports = seedUsers;
 
 
 /***/ }),
@@ -1466,6 +1640,17 @@ module.exports = require("express-session");
 
 /***/ }),
 
+/***/ "faker":
+/*!************************!*\
+  !*** external "faker" ***!
+  \************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+module.exports = require("faker");
+
+/***/ }),
+
 /***/ "memorystore":
 /*!******************************!*\
   !*** external "memorystore" ***!
@@ -1499,14 +1684,14 @@ module.exports = require("mongoose");
 
 /***/ }),
 
-/***/ "morgan":
+/***/ "multer":
 /*!*************************!*\
-  !*** external "morgan" ***!
+  !*** external "multer" ***!
   \*************************/
 /*! no static exports found */
 /***/ (function(module, exports) {
 
-module.exports = require("morgan");
+module.exports = require("multer");
 
 /***/ }),
 

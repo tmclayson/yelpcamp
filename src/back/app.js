@@ -13,8 +13,8 @@ const MemoryStore = require('memorystore')(session);
 const flash = require('connect-flash');
 
 
-// const seedDB = require('./seeds');
-const init = require('./init');
+const seedCampgrounds = require('./seedCampgrounds');
+const seedUsers = require('./seedUsers');
 // const lib = require('./assets/lib/js/mylibrary');
 
 const User = require('../../models/user');
@@ -23,6 +23,8 @@ const commentRoutes = require('../../routes/comments');
 const campgroundRoutes = require('../../routes/campgrounds');
 const indexRoutes = require('../../routes/index');
 
+const args = process.argv.slice(2);
+const seedCampgroundsArg = Boolean(args[0]);
 // CONFIGURATION ===============================================================
 mongoose.connect(`mongodb://${process.env.DB_HOST}/yelpcamp`, { useNewUrlParser: true });
 
@@ -78,18 +80,18 @@ app.use('/', indexRoutes);
 app.use('/campgrounds/:id/comments', commentRoutes);
 app.use('/campgrounds', campgroundRoutes);
 
-// seedDB();
-init()
-    .then(() => {
-        // LAUNCH ===============================================================
-        app.listen(process.env.PORT, 'localhost', () => {
-            console.log('Server has started!');
+if (seedUsers()) {
+    seedCampgrounds(seedCampgroundsArg)
+        .then(() => {
+            // LAUNCH ===============================================================
+            app.listen(process.env.PORT, 'localhost', () => {
+                console.log('Server has started!');
+            });
+        })
+        .catch((err) => {
+            console.log(err);
         });
-    })
-    .catch((err) => {
-        console.log(err);
-    });
-
+}
 /*
 app.get('/search', (req, res) => {
     res.render('search');

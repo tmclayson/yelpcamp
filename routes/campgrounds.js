@@ -1,8 +1,9 @@
 /* eslint-disable no-shadow */
 const express = require('express');
-const NodeGeocoder = require('node-geocoder');
-const cloudinary = require('cloudinary');
+
 const multer = require('multer');
+const geocoder = require('../src/back/geocoder');
+const cloudinary = require('../src/back/cloudinary');
 const Campground = require('../models/campground');
 const User = require('../models/user');
 const Notification = require('../models/notification');
@@ -26,23 +27,6 @@ const fileFilter = (req, file, cb) => {
 };
 const upload = multer({ storage, fileFilter });
 
-// cloudinary setup
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    // api_secret: 's4cR-nwfkX5et_jBHI_2-i1MPqc',
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-// geocoder setup
-const geocoder = NodeGeocoder({
-    provider: 'google',
-    // Optional depending on the providers
-    httpAdapter: 'https', // Default
-    apiKey: process.env.GEOCODER_API_KEY,
-    formatter: null,
-});
-
 const router = express.Router({ mergeParams: true });
 
 function escapeRegex(text) {
@@ -59,16 +43,16 @@ router.get('/', (req, res) => {
         Campground.find({ name: regex }, (err, campgrounds) => {
             if (err) {
                 console.log('err :', err);
-            } else {
-                req.breadcrumbs('All Campgrounds', '/campgrounds');
-                if (campgrounds.length < 1) {
-                    req.flash('error', 'There are no campgrounds we know that match that search');
-                    res.redirect('/campgrounds');
-                } else {
-                    req.breadcrumbs('Search Results', `/campgrounds${req.query.search}`);
-                    res.render('campgrounds/index', { campgrounds });
-                }
+                req.flash('error', 'An error was encountered whilst attempting the search');
+                return res.redirect('/campgrounds');
             }
+            req.breadcrumbs('All Campgrounds', '/campgrounds');
+            if (campgrounds.length < 1) {
+                req.flash('error', 'There are no campgrounds we know that match that search');
+                return res.redirect('/campgrounds');
+            }
+            req.breadcrumbs('Search Results', `/campgrounds${req.query.search}`);
+            return res.render('campgrounds/index', { campgrounds });
         });
     } else {
         Campground.find({}, (err, campgrounds) => {
@@ -177,8 +161,8 @@ router.get('/:id', (req, res) => {
             res.redirect('back');
         } else {
             req.breadcrumbs('All Campgrounds', '/campgrounds');
-            req.breadcrumbs(campground.name, `//${campground.id}`);
-            res.render('campgrounds/show', { campground, breadcrumbs: req.breadcrumbs() });
+            req.breadcrumbs(campground.name, `/campgrounds/${campground.id}`);
+            res.render('campgrounds/show', { campground });
         }
     });
 });
@@ -187,9 +171,9 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', middleware.ensureLoggedIn('/login'), middleware.checkCampgroundOwnership, (req, res) => {
     Campground.findById(req.params.id).populate('comments').exec((err, campground) => {
         req.breadcrumbs('All Campgrounds', '/campgrounds');
-        req.breadcrumbs(campground.name, `//${campground.id}`);
-        req.breadcrumbs('Edit', `//${campground.id}/edit`);
-        res.render('campgrounds/edit', { campground, breadcrumbs: req.breadcrumbs() });
+        req.breadcrumbs(campground.name, `/campgrounds/${campground.id}`);
+        req.breadcrumbs('Edit', `/campgrounds/${campground.id}/edit`);
+        res.render('campgrounds/edit', { campground });
     });
 });
 // UPDATE - save the edited campground

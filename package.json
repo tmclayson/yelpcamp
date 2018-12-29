@@ -4,6 +4,9 @@
     "main": "src/back/app.js",
     "scripts": {
         "start": "node app.js",
+        "start:seed": "node src/back/app.js true",
+        "debug": "nodemon --inspect-brk=9229 src/back/app.js",
+        "debug:seed": "node --inspect-brk=9229 src/back/app.js true",
         "start:dev": "webpack-dev-server",
         "build": "webpack",
         "watch": "webpack --watch"
